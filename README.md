@@ -37,40 +37,40 @@
 
 ```bash
 # Подробная справка с примерами
-python py2jupyter.py --help
-python py2jupyter.py -h
+py2jupyter --help
+py2jupyter -h
 
 # Краткая справка
-python py2jupyter.py
+py2jupyter
 ```
 
 ### Базовая конвертация
 
 ```bash
 # Python → Jupyter (автоматическое имя выходного файла)
-python py2jupyter.py script.py
+py2jupyter script.py
 
 # Python → Jupyter (указанное имя)
-python py2jupyter.py script.py notebook.ipynb
+py2jupyter script.py notebook.ipynb
 
 # Python → Jupyter (автоматическое расширение)
-python py2jupyter.py script.py output  # → создаст output.ipynb
+py2jupyter script.py output  # → создаст output.ipynb
 
 # Jupyter → Python (автоматическое имя)
-python py2jupyter.py notebook.ipynb
+py2jupyter notebook.ipynb
 
 # Jupyter → Python (автоматическое расширение)
-python py2jupyter.py notebook.ipynb output  # → создаст output.py
+py2jupyter notebook.ipynb output  # → создаст output.py
 ```
 
 ### Многофайловое слияние
 
 ```bash
 # Объединение нескольких Python файлов в один Notebook
-python py2jupyter.py script1.py script2.py script3.py combined.ipynb
+py2jupyter script1.py script2.py script3.py combined.ipynb
 
 # Объединение нескольких Notebook в один Python файл
-python py2jupyter.py notebook1.ipynb notebook2.ipynb merged.py
+py2jupyter notebook1.ipynb notebook2.ipynb merged.py
 ```
 
 > **Примечания**: 
@@ -81,7 +81,9 @@ python py2jupyter.py notebook1.ipynb notebook2.ipynb merged.py
 
 ## 📋 Правила оформления
 
-Для правильной конвертации Python файлов в Jupyter ноутбуки следуйте правилам оформления, описанным в файле [`PY_FORMAT_RULES.md`](PY_FORMAT_RULES.md).
+Для правильной конвертации Python файлов в Jupyter ноутбуки следуйте правилам оформления, описанным в файле [`PY_FORMAT_RULES.md`](PY_FORMAT_RULES.md) или скажите своей LLM следовать им.
+
+Гарантируется, что для файлов, оформленных согласно правилам оформления, конвертация будет обратимой, то есть конвертация туда-обратно не будет менять код.
 
 ## 📋 Примеры
 
@@ -142,7 +144,7 @@ v0 = 0.0  # начальная скорость
 
 #%matplotlib inline
 
-#! pip install seaborn
+#!pip install seaborn
 
 r"""
 Раздел с анализом (содержит \ символы).

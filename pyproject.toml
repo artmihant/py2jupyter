@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "py2jupyter"
-version = "0.1.0"
+version = "0.1.1"
 description = "Конвертер Python ↔ Jupyter Notebook"
 readme = "README.md"
 license = "MIT"
@@ -33,11 +33,9 @@ classifiers = [
 dependencies = []
 
 [project.urls]
-Homepage = "https://github.com/antonov/py2jupyter"
-Documentation = "https://github.com/antonov/py2jupyter#readme"
-Repository = "https://github.com/antonov/py2jupyter.git"
-Issues = "https://github.com/antonov/py2jupyter/issues"
-Changelog = "https://github.com/antonov/py2jupyter/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/artmihant/py2jupyter"
+Documentation = "https://github.com/artmihant/py2jupyter#readme"
+Repository = "https://github.com/artmihant/py2jupyter.git"
 
 [project.scripts]
 py2jupyter = "py2jupyter.__main__:main"
@@ -47,7 +45,7 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["."]
-exclude = ["tests*", "docs*"]
+exclude = ["example*", "docs*", "test*"]
 
 [tool.setuptools.package-data]
 py2jupyter = ["*.md", "*.txt"]
