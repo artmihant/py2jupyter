@@ -10,8 +10,6 @@
 Мы сравним их по точности и эффективности на примере затухающего гармонического осциллятора.
 """
 
-#%matplotlib inline
-
 import numpy as np
 import matplotlib.pyplot as plt
 from math import pi
@@ -621,6 +619,7 @@ if omega0 > gamma:
 else:
     print("Система находится в апериодическом режиме (критическое или перекритическое затухание)")
 
+
 # Решение методом Leapfrog
 u_leapfrog, v_leapfrog = leapfrog_method(u0, v0, dt, n_steps)
 energy_leapfrog = energy(u_leapfrog, v_leapfrog)
@@ -648,6 +647,7 @@ energy_adams_moulton2 = energy(u_adams_moulton2, v_adams_moulton2)
 # Решение методом Адамса-Моултона 4-го порядка (неявный)
 u_adams_moulton4, v_adams_moulton4 = implicit_adams4_method(u0, v0, dt, n_steps)
 energy_adams_moulton4 = energy(u_adams_moulton4, v_adams_moulton4)
+
 
 # Подготавливаем данные для графиков
 plot_data = [
@@ -714,6 +714,8 @@ plot_data = [
 """ Построим графики для сравнения методов второго порядка. """
 
 plots(t, T, plot_data)
+
+""" Анимация осциляторов может не отображаться в режиме ноутбука. Вы можете посмотреть графики, запустив скрипт .py """
 
 """ ## Выводы ## """
 
