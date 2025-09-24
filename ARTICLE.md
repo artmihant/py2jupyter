@@ -186,8 +186,8 @@ plt.show()
 Отдельно стоит упомянуть поддержку Jupyter magic команд. В Python файле пишете:
 
 ```python
-#%matplotlib inline
-#!pip install seaborn
+#> %matplotlib inline
+#> !pip install seaborn
 ```
 
 В ноутбуке это становится полноценными magic и shell ячейками. При обратной конвертации всё возвращается на свои места.

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "py2jupyter"
-version = "0.2.0"
+version = "0.3"
 description = "Конвертер Python ↔ Jupyter Notebook"
 readme = "README.md"
 license = "MIT"
@@ -31,6 +31,7 @@ classifiers = [
     "Topic :: Text Processing :: Markup",
 ]
 dependencies = []
+optional-dependencies = { dev = ["pytest>=7.0.0", "pytest-cov>=4.0.0"] }
 
 [project.urls]
 Homepage = "https://github.com/artmihant/py2jupyter"
@@ -45,7 +46,23 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["."]
-exclude = ["example*", "docs*", "test*"]
+exclude = ["example*", "docs*"]
 
 [tool.setuptools.package-data]
 py2jupyter = ["*.md", "*.txt"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--verbose",
+    "--tb=short",
+    "--strict-markers",
+    "--disable-warnings",
+    "--cov=py2jupyter",
+    "--cov-report=term-missing",
+    "--cov-report=html:htmlcov",
+    "--cov-fail-under=50"
+]

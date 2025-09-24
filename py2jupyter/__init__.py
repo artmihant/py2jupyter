@@ -5,6 +5,6 @@ py2jupyter - Конвертер Python ↔ Jupyter Notebook
 с поддержкой markdown комментариев и умным структурированием кода.
 """
 
-__version__ = "0.1.1"
+__version__ = "0.3.0"
 __author__ = "Artem Antonov"
 __description__ = "Конвертер Python ↔ Jupyter Notebook"

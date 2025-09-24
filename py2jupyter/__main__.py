@@ -10,6 +10,7 @@
 """
 
 import ast
+import glob
 import json
 import re
 import sys
@@ -23,6 +24,22 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*Attrib
 
 
 # Экспортируем функцию main для использования в __main__.py
+def expand_glob_patterns(patterns: List[str]) -> List[str]:
+    """Расширяет glob-шаблоны в список файлов, сортирует по имени"""
+    expanded_files = []
+    for pattern in patterns:
+        # Используем glob для расширения шаблона
+        matches = glob.glob(pattern)
+        if matches:
+            # Сортируем найденные файлы по имени
+            matches.sort()
+            expanded_files.extend(matches)
+        else:
+            # Если шаблон не нашел файлов, добавляем как есть (для обратной совместимости)
+            expanded_files.append(pattern)
+    return expanded_files
+
+
 def show_help():
     """Показывает справку по использованию инструмента"""
     print("🔄 py2jupyter - Конвертер Python ↔ Jupyter Notebook")
@@ -42,6 +59,8 @@ def show_help():
     print("  Многофайловое слияние:")
     print("    py2jupyter file1.py file2.py merged.ipynb")
     print("    py2jupyter nb1.ipynb nb2.ipynb merged.py")
+    print("    py2jupyter script*.py                    # → script.ipynb (автоматически)")
+    print("    py2jupyter test_*.py output.ipynb       # с указанием выходного файла")
     print()
     print("📝 ФОРМАТЫ КОММЕНТАРИЕВ:")
     print("  Python → Jupyter:")
@@ -61,6 +80,7 @@ def show_help():
     print("  ✓ Умное определение r-префикса по наличию \\ символов")
     print("  ✓ Автоматическое определение расширений файлов")
     print("  ✓ Многофайловое слияние")
+    print("  ✓ Поддержка glob-шаблонов (*, ?)")
     print("  ✓ Взаимообратимая конвертация")
     print()
     print("📚 ПРИМЕРЫ:")
@@ -84,26 +104,29 @@ def main():
         print("  python py2jupyter.py input.py [output.ipynb]    # py → ipynb")
         print("  python py2jupyter.py input.ipynb [output.py]    # ipynb → py")
         print("  python py2jupyter.py input1.py input2.py output.ipynb  # многофайловое слияние")
+        print("  python py2jupyter.py script*.py                 # glob-шаблоны")
         print("  python py2jupyter.py --help                     # подробная справка")
         print()
-        print("Если выходной файл не указан, он генерируется автоматически (только для одного файла)")
+        print("Если выходной файл не указан, он генерируется автоматически")
         sys.exit(1)
 
     # Разделяем аргументы на входные файлы и выходной файл
+    original_input_pattern = None  # Для генерации имени из glob-шаблона
     if len(sys.argv) == 2:
         # Один входной файл, выходной генерируется автоматически
+        original_input_pattern = sys.argv[1]
         input_files = [sys.argv[1]]
         output_file = None
     elif len(sys.argv) == 3:
-        # Может быть один входной файл с выходным, или два входных файла (ошибка)
+        # Может быть один входной файл с выходным, или два входных файла (результат glob-расширения)
         first_path = Path(sys.argv[1])
         second_path = Path(sys.argv[2])
-        
+
         # Проверяем, есть ли у второго файла расширение .py/.ipynb - если да, то это несколько входных файлов
         if second_path.suffix in ['.py', '.ipynb'] and first_path.suffix == second_path.suffix:
-            print("Ошибка: Для многофайлового слияния необходимо указать выходной файл")
-            print("Использование: python -m py2jupyter input1.py input2.py output.ipynb")
-            sys.exit(1)
+            # Это может быть результат glob-расширения - обрабатываем как несколько входных файлов
+            input_files = [sys.argv[1], sys.argv[2]]
+            output_file = None
         else:
             # Это один входной файл с выходным файлом
             input_files = [sys.argv[1]]
@@ -112,6 +135,9 @@ def main():
         # Несколько входных файлов, последний - выходной
         input_files = sys.argv[1:-1]
         output_file = sys.argv[-1]
+
+    # Расширяем glob-шаблоны в списке входных файлов
+    input_files = expand_glob_patterns(input_files)
 
     # Проверяем существование всех входных файлов
     input_paths = []
@@ -132,18 +158,54 @@ def main():
     # Определяем выходной файл, если не указан
     if output_file is None:
         if len(input_paths) > 1:
-            print("Ошибка: Для многофайлового слияния необходимо указать выходной файл")
-            sys.exit(1)
-        # Автоматическая генерация выходного файла для одного входного
-        input_path = input_paths[0]
-        if input_path.suffix == '.py':
-            output_file = str(input_path.with_suffix('.ipynb'))
-        elif input_path.suffix == '.ipynb':
-            output_file = str(input_path.with_suffix('.py'))
+            # Для нескольких файлов пытаемся определить общий префикс
+            # (что указывает на использование glob-шаблона)
+            file_names = [p.stem for p in input_paths]  # имена без расширений
+
+            # Находим общий префикс
+            if file_names:
+                common_prefix = file_names[0]
+                for name in file_names[1:]:
+                    # Находим общую часть до первого отличия
+                    for i, (a, b) in enumerate(zip(common_prefix, name)):
+                        if a != b:
+                            common_prefix = common_prefix[:i]
+                            break
+                    else:
+                        # Если одно имя короче другого
+                        common_prefix = common_prefix[:min(len(common_prefix), len(name))]
+
+                # Убираем trailing символы, которые могут быть частью шаблона
+                common_prefix = common_prefix.rstrip('_-0123456789')
+
+                if common_prefix and len(common_prefix) > 1:  # Минимум 2 символа для осмысленного имени
+                    base_name = common_prefix
+                else:
+                    # Если общего префикса нет, используем просто первый файл без номера
+                    base_name = file_names[0].rstrip('_-0123456789')
+
+                if input_paths[0].suffix == '.py':
+                    output_file = base_name + '.ipynb'
+                elif input_paths[0].suffix == '.ipynb':
+                    output_file = base_name + '.py'
+                else:
+                    print(f"Неподдерживаемый формат файла: {input_paths[0].suffix}")
+                    print("Поддерживаются только .py и .ipynb файлы")
+                    sys.exit(1)
+            else:
+                print("Ошибка: Для многофайлового слияния необходимо указать выходной файл")
+                sys.exit(1)
         else:
-            print(f"Неподдерживаемый формат файла: {input_path.suffix}")
-            print("Поддерживаются только .py и .ipynb файлы")
-            sys.exit(1)
+            # Автоматическая генерация выходного файла для одного входного
+            input_path = input_paths[0]
+            if input_path.suffix == '.py':
+                output_file = str(input_path.with_suffix('.ipynb'))
+            elif input_path.suffix == '.ipynb':
+                output_file = str(input_path.with_suffix('.py'))
+            else:
+                print(f"Неподдерживаемый формат файла: {input_path.suffix}")
+                print("Поддерживаются только .py и .ipynb файлы")
+                sys.exit(1)
 
     output_path = Path(output_file)
     
@@ -250,9 +312,21 @@ class PythonToIPythonConverter:
 
         for node in ast.walk(tree):
             if isinstance(node, ast.FunctionDef):
-                all_functions.append((node.lineno, node.end_lineno, node.name, node)) #type:ignore
+                # Определяем реальное начало функции с учетом декораторов
+                start_line = node.lineno
+                if node.decorator_list:
+                    # Находим минимальный lineno среди всех декораторов
+                    decorator_start = min(decorator.lineno for decorator in node.decorator_list)
+                    start_line = min(start_line, decorator_start)
+                all_functions.append((start_line, node.end_lineno, node.name, node)) #type:ignore
             elif isinstance(node, ast.ClassDef):
-                all_classes.append((node.lineno, node.end_lineno, node.name, node)) #type:ignore
+                # Определяем реальное начало класса с учетом декораторов
+                start_line = node.lineno
+                if node.decorator_list:
+                    # Находим минимальный lineno среди всех декораторов
+                    decorator_start = min(decorator.lineno for decorator in node.decorator_list)
+                    start_line = min(start_line, decorator_start)
+                all_classes.append((start_line, node.end_lineno, node.name, node)) #type:ignore
 
         # Фильтруем только top-level функции (не вложенные)
         for func_start, func_end, func_name, func_node in all_functions:
@@ -308,13 +382,13 @@ class PythonToIPythonConverter:
                     if not is_docstring:
                         multiline_strings.append((node.lineno, node.end_lineno))
 
-        # Находим magic команды в формате #%command
+        # Находим magic команды в формате #> %command
         magic_commands = []
         for i, line in enumerate(lines, 1):  # i - номер строки (1-based)
             stripped = line.strip()
-            if stripped.startswith('#%'):
-                # Извлекаем magic команду (убираем #)
-                magic_content = stripped[1:].strip()  # убираем # и пробелы
+            if stripped.startswith('#> %'):
+                # Извлекаем magic команду (убираем #> )
+                magic_content = stripped[3:].strip()  # убираем #> и пробелы
 
                 # Проверяем, что это не внутри функции/класса
                 is_inside_block = False
@@ -330,13 +404,13 @@ class PythonToIPythonConverter:
                 if not is_inside_block:
                     magic_commands.append((i, i, magic_content))
 
-        # Находим shell команды в формате #!command
+        # Находим shell команды в формате #> !command
         shell_commands = []
         for i, line in enumerate(lines, 1):  # i - номер строки (1-based)
             stripped = line.strip()
-            if stripped.startswith('#!'):
-                # Извлекаем shell команду (убираем #)
-                shell_content = stripped[1:].strip()  # убираем # и пробелы
+            if stripped.startswith('#> !'):
+                # Извлекаем shell команду (убираем #> )
+                shell_content = stripped[3:].strip()  # убираем #> и пробелы
 
                 # Проверяем, что это не внутри функции/класса
                 is_inside_block = False
@@ -642,6 +716,7 @@ class IPythonToPythonConverter:
             notebook = json.load(f)
 
         self.python_code = []
+        first_code_cell_found = False
 
         for cell in notebook.get('cells', []):
             cell_type = cell.get('cell_type', 'code')
@@ -669,17 +744,26 @@ class IPythonToPythonConverter:
             else:
                 content = source_lines
 
+            # Проверяем, является ли это первой code ячейкой с shebang
+            if cell_type == 'code' and not first_code_cell_found and content.strip().startswith('#!'):
+                # Нашли shebang в первой code ячейке - добавляем его в начало
+                shebang_lines = [line for line in content.split('\n') if line.strip().startswith('#!')]
+                if shebang_lines:
+                    self.python_code.append(shebang_lines[0])
+                    self.python_code.append('')  # Добавляем пустую строку после shebang
+                first_code_cell_found = True
+
             if cell_type == 'markdown':
                 if content.strip():
                     # Определяем нужен ли префикс r на основе наличия символа \
                     needs_r_prefix = '\\' in content
                     prefix = 'r' if needs_r_prefix else ''
-                    
+
                     # Проверяем, является ли это однострочным контентом
                     lines_content = content.strip().split('\n')
                     is_single_line = len(lines_content) == 1
-                    
-                    if (is_single_line and 
+
+                    if (is_single_line and
                         content.strip().startswith('#') and content.strip().endswith('#')):
                         # Это заголовок - оборачиваем в """ # заголовок # """
                         self.python_code.append(f'{prefix}\"\"\" {content.strip()} \"\"\"')
@@ -698,16 +782,28 @@ class IPythonToPythonConverter:
                         single_line = lines[0].strip()
                         if single_line.startswith('%'):
                             # Это magic команда - конвертируем в комментарий
-                            self.python_code.append(f'#{single_line}')
+                            self.python_code.append(f'#> {single_line}')
                         elif single_line.startswith('!'):
-                            # Это shell команда - конвертируем в комментарий
-                            self.python_code.append(f'#{single_line}')
+                            # Проверяем, является ли это shebang
+                            if single_line.startswith('!/usr/bin/env python') or single_line.startswith('!/usr/bin/python'):
+                                # Это shebang - оставляем как есть
+                                self.python_code.append(f'#{single_line}')
+                            else:
+                                # Это shell команда - конвертируем в комментарий
+                                self.python_code.append(f'#> {single_line}')
                         else:
-                            # Обычный код - добавляем как есть
-                            self.python_code.append(content)
+                            # Обычный код - добавляем как есть, но без shebang (уже обработан выше)
+                            code_content = '\n'.join([line for line in content.split('\n') if not line.strip().startswith('#!')])
+                            if code_content.strip():
+                                self.python_code.append(code_content)
                     else:
-                        # Многострочный код - добавляем как есть
-                        self.python_code.append(content)
+                        # Многострочный код - добавляем как есть, но без shebang
+                        code_content = '\n'.join([line for line in content.split('\n') if not line.strip().startswith('#!')])
+                        if code_content.strip():
+                            self.python_code.append(code_content)
+
+                if cell_type == 'code':
+                    first_code_cell_found = True
 
             # Добавляем пустую строку для разделения между ячейками (кроме последней)
             if cell != notebook.get('cells', [])[-1]:
