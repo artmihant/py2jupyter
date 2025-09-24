@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "py2jupyter"
-version = "0.3"
+version = "0.4"
 description = "Конвертер Python ↔ Jupyter Notebook"
 readme = "README.md"
 license = "MIT"
