@@ -132,9 +132,24 @@ def main():
             input_files = [sys.argv[1]]
             output_file = sys.argv[2]
     else:
-        # Несколько входных файлов, последний - выходной
-        input_files = sys.argv[1:-1]
-        output_file = sys.argv[-1]
+        # Проверяем, все ли аргументы - существующие файлы с одинаковым расширением
+        all_args = sys.argv[1:]
+        all_paths_exist = all(Path(arg).exists() for arg in all_args)
+        if all_paths_exist:
+            # Все аргументы - существующие файлы
+            all_suffixes = set(Path(arg).suffix for arg in all_args)
+            if len(all_suffixes) == 1 and all_suffixes.pop() in ['.py', '.ipynb']:
+                # Все файлы имеют одинаковое расширение .py или .ipynb - считаем их входными
+                input_files = all_args
+                output_file = None
+            else:
+                # Разные расширения или неподдерживаемые - последний выходной
+                input_files = all_args[:-1]
+                output_file = all_args[-1]
+        else:
+            # Некоторые аргументы не существуют - последний выходной
+            input_files = all_args[:-1]
+            output_file = all_args[-1]
 
     # Расширяем glob-шаблоны в списке входных файлов
     input_files = expand_glob_patterns(input_files)
@@ -184,10 +199,12 @@ def main():
                     # Если общего префикса нет, используем просто первый файл без номера
                     base_name = file_names[0].rstrip('_-0123456789')
 
+                # Используем директорию первого файла как базовую для выходного файла
+                output_dir = input_paths[0].parent
                 if input_paths[0].suffix == '.py':
-                    output_file = base_name + '.ipynb'
+                    output_file = str(output_dir / (base_name + '.ipynb'))
                 elif input_paths[0].suffix == '.ipynb':
-                    output_file = base_name + '.py'
+                    output_file = str(output_dir / (base_name + '.py'))
                 else:
                     print(f"Неподдерживаемый формат файла: {input_paths[0].suffix}")
                     print("Поддерживаются только .py и .ipynb файлы")
@@ -227,17 +244,26 @@ def main():
             # Конвертация Python -> Jupyter (одиночная или множественная)
             converter = PythonToIPythonConverter()
             total_cells = 0
-            
-            for input_path in input_paths:
+
+            if len(input_paths) == 1:
+                # Для одиночной конвертации используем основной конвертер
                 cells = converter.parse_python_file(str(input_path))
-                total_cells += len(cells)
-                
+                total_cells = len(cells)
+            else:
+                # Для слияния создаем временный конвертер для каждого файла
+                for input_path in input_paths:
+                    temp_converter = PythonToIPythonConverter()
+                    cells = temp_converter.parse_python_file(str(input_path))
+                    total_cells += len(cells)
+                    # Добавляем ячейки из этого файла к общему списку
+                    converter.cells.extend(cells)
+
             converter.generate_ipynb(str(output_path))
             if len(input_paths) == 1:
                 print(f"Конвертировано {total_cells} ячеек: {input_paths[0].name} → {output_path.name}")
             else:
                 file_names = [p.name for p in input_paths]
-                print(f"Объединено {len(input_paths)} файлов ({', '.join(file_names)}) → {output_path.name}")
+                print(f"Объединено {len(input_paths)} файлов ({', '.join(file_names)}) → {output_path}")
                 print(f"Всего ячеек: {total_cells}")
 
         elif input_paths[0].suffix == '.ipynb':
@@ -262,7 +288,7 @@ def main():
                 print(f"Конвертировано: {input_paths[0].name} → {output_path.name}")
             else:
                 file_names = [p.name for p in input_paths]
-                print(f"Объединено {len(input_paths)} файлов ({', '.join(file_names)}) → {output_path.name}")
+                print(f"Объединено {len(input_paths)} файлов ({', '.join(file_names)}) → {output_path}")
 
         else:
             print("Неподдерживаемый формат файла")

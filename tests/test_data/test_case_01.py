@@ -3,7 +3,6 @@
 
 """ Простой тестовый файл """
 
-
 import os
 import sys
 

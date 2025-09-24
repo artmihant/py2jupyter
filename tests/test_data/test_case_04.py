@@ -1,8 +1,9 @@
 """ # Тест magic и shell команд # """
 
-"""Этот тест проверяет обработку magic и shell команд."""
+""" Этот тест проверяет обработку magic и shell команд. """
 
 #> %matplotlib inline
+
 #> %config InlineBackend.figure_format = 'retina'
 
 import matplotlib.pyplot as plt
